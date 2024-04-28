@@ -185,71 +185,23 @@ def Calc_nn(seq_file1, seq_file2, filename = '', save = True, numpy = True):
     return nn, dis
 
 # Function to replace each element in the tensor with a different element from possible values
-def replace_with_rand_mut(initial, possible):
-    result = initial.clone()
+def replace_with_rand_mut(initial, possible, prob):
+    '''
+    This function finds the final values for the sequence we are mutating
+    '''
+    final = initial.clone()
+
     for i in range(initial.size(0)):
-        # Filter out the current item
-        filtered_possible = possible[possible != initial[i]]
-        # Randomly select a new value from the filtered possible values
+        # It's ok if it's not the same and...
+        ok = (possible != initial[i])
+        # ... the probability of the amino acid being there isn't too low
+        ok2 = (prob[i, possible] > -10)
+        # So if both of those are true...
+        okf = (ok & ok2)
+        # Those are what we pick between
+        filtered_possible = possible[okf == True]
+        # Pick new value from all the ones we say are ok
         new_value = filtered_possible[torch.randint(0, filtered_possible.size(0), (1,))]
-        result[i] = new_value
-    return result
-
-def find_new_vals_near_zero(token_i, model, alphabet, num_mask, N_eff = 30, thresh = 1):
-    Vals = torch.tensor([
-                4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-                20, 21, 22, 23, 30
-            ]).to(token_i.get_device())
+        final[i] = new_value
     
-    prob_all_at_once = 1000
-    count = 0
-    seq_len = token_i.shape[0]
-    #print(f'token shape is', token_i.shape)
-    while(np.abs(prob_all_at_once - 0) > thresh):
-        mask_idxs = torch.randperm(seq_len-2)[:num_mask] # Then take the first num_mask to mask
-        mask_idxs += 1
-        out = calc_model_prob(token_i.clone().unsqueeze(0), model, alphabet, mask_idxs, 0)
-        out_masked = torch.log(out[0, mask_idxs])
-        new_vals = replace_with_rand_mut(token_i[mask_idxs], Vals, out_masked)
-        
-        while not isinstance(new_vals, torch.Tensor):
-            #print('got a zero')
-            mask_idxs = torch.randperm(seq_len-2)[:num_mask] # Then take the first num_mask to mask
-            mask_idxs += 1
-            out = calc_model_prob(token_i.clone().unsqueeze(0), model, alphabet, mask_idxs, 0)
-            out_masked = torch.log(out[0, mask_idxs])
-            new_vals = replace_with_rand_mut(token_i[mask_idxs], Vals, out_masked)
-            
-        old_vals = token_i[mask_idxs].clone()
-        prob_all_at_once = np.sum([out_masked[i, new_vals[i]].item() - out_masked[i, old_vals[i]].item() for i in range(num_mask)])
-        count += 1
-        if (count+1)%100 == 0:
-            print(f'the count is now {count}')
-    
-    return mask_idxs, new_vals, out_masked
-        
-def find_new_vals(token_i, model, alphabet, num_mask):
-    Vals = torch.tensor([
-                4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-                20, 21, 22, 23, 30
-            ]).to(token_i.get_device())
-    
-    # This permutes an array that is [0, 1, ..., batch_tokens.shape[1]]
-    seq_len = token_i.shape[0]
-    mask_idxs = torch.randperm(seq_len-2)[:num_mask] # Then take the first num_mask to mask
-    mask_idxs += 1     
-
-    out = calc_model_prob(token_i.clone().unsqueeze(0), model, alphabet, mask_idxs, 0)
-    out_masked = torch.log(out[0, mask_idxs])
-
-    new_vals = replace_with_rand_mut(token_i[mask_idxs], Vals, out_masked)
-
-    while not isinstance(new_vals, torch.Tensor):
-        #print('got a zero')
-        mask_idxs = torch.randperm(seq_len-2)[:num_mask] # Then take the first num_mask to mask
-        mask_idxs += 1
-        out = calc_model_prob(token_i.clone().unsqueeze(0), model, alphabet, mask_idxs, 0)
-        out_masked = torch.log(out[0, mask_idxs])
-        new_vals = replace_with_rand_mut(token_i[mask_idxs], Vals, out_masked)
-    
-    return mask_idxs, new_vals, out_masked
+    return final
