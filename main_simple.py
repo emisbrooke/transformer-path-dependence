@@ -56,7 +56,7 @@ def diff_paths_random(batch_tokens, model, alphabet, num_mask, num_pairs = 20, i
         prob_all_at_once[n] = np.sum([torch.log(prob_all[mask_idxs[i], new_vals[i]]).item() - torch.log(prob_all[mask_idxs[i], old_vals[i]]).item() for i in range(num_mask)])
 
         #This is just in case you don't want to do all of them
-        for i in tqdm(range(iters)):
+        for i in range(iters):
             rand_idx = torch.randperm(num_mask) # Get a random order for the positions that we will mask
             current_tokens = batch_tokens.clone() # This is the tokens we will be mutating one at a time     
             

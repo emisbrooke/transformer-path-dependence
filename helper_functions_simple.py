@@ -132,58 +132,6 @@ def calc_model_prob(batch_tokens, model, alphabet, mask_idxs, i = 0, gpu = True)
     return prob
 
 
-
-def get_prob_nat(prob_tensor):
-    ''' Input is a prob tensor which has all 33 possibilities
-    Output is a prob tensor with only the vals we want'''
-    Vals = torch.tensor([
-                    4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-                    20, 21, 22, 23, 30
-                ]).numpy()
-    return prob_tensor[:,:,:,Vals]#.cuda()
-
-def Calc_nn(seq_file1, seq_file2, filename = '', save = True, numpy = True):
-    ''' A function that calculates the location of the nearest neighbor to any sequence between MSAs
-    Input:
-        seq_file1: The file path to the MSA you would like to calulate the nn for
-        seq_file2: The file path to the MSA you want to compare seq_file_1 to
-        filename: The initial bit of the filename you want to save the nn to
-        save: Default-True. This is to say if you would like the nn and distance to the nn to be saved or if you just want to return the values. Files saved as filename_dis.npy and filename_idx.npy
-        numpy: Default-True. If true, the seq_file1 and 2 are paths to numpy files, otherwise paths to fasta files
-    Output:
-        nn: An array containing the index of the nearest neighbor from each sequence in seq_file1 to the sequences in seq_file2. Length is the number of sequences in seq_file1
-        dis: An array containing the hamming distance of the first sequences to the nn (the distance to the corresponding idxs in nn. Length is the number of sequences in seq_file1.
-    '''
-    if numpy == False:
-        seqs1 = Convert_fastaToNp(seq_file1, binary = False, labels_inc =True)
-        seqs2 = Convert_fastaToNp(seq_file2, binary = False, labels_inc =True)
-    else:
-        seqs1 = np.load(seq_file1)
-        seqs2 = np.load(seq_file2)
-    n1 = seqs1.shape[0]
-    n2 = seqs2.shape[0]
-    #dis = np.zeros((n1,n2))
-    nn = np.zeros(n1, dtype=int)
-
-    # Compute pairwise distances between all points in Zs
-    pairwise_distances = cdist(seqs1, seqs2, 'hamming')
-
-    # Set the diagonal elements to a large value (e.g., np.inf) so they won't be considered as the minimum
-    np.fill_diagonal(pairwise_distances, np.inf)
-
-    # Find the index of the minimum distance along each row (axis=1)
-    nn = np.argmin(pairwise_distances, axis=1)
-    #print(nn.shape, pairwise_distances.shape)
-
-    # Get the minimum distance values
-    dis = np.min(pairwise_distances, axis=1)
-
-    if save == True:
-        np.save(f'{filename}_dis', dis)
-        np.save(f'{filename}_idx', nn)
-
-    return nn, dis
-
 # Function to replace each element in the tensor with a different element from possible values
 def replace_with_rand_mut(initial, possible, prob):
     '''
@@ -195,7 +143,7 @@ def replace_with_rand_mut(initial, possible, prob):
         # It's ok if it's not the same and...
         ok = (possible != initial[i])
         # ... the probability of the amino acid being there isn't too low
-        ok2 = (prob[i, possible] > -10)
+        ok2 = (prob[i, possible] > -8)
         # So if both of those are true...
         okf = (ok & ok2)
         # Those are what we pick between
